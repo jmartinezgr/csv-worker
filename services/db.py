@@ -15,9 +15,14 @@ def process_csv_stream_to_mongo(
     mongo_collection: str,
     batch_size: int = 5000,
     block_size_bytes: int = 16 * 1024 * 1024,
+    client_id: int | None = None,
+    period: str | None = None,
     log: Logger | None = None,
 ):
-    """Read CSV in streaming record batches and insert into Mongo in batches."""
+    """Read CSV in streaming record batches and insert into Mongo in batches.
+
+    Optionally adds client_id (as 'cxj') and period (as 'cxi') to each document.
+    """
     client = MongoClient(mongo_uri)
     collection = client[mongo_db][mongo_collection]
 
@@ -36,6 +41,14 @@ def process_csv_stream_to_mongo(
         table = pa.Table.from_batches([record_batch])
         df = pl.from_arrow(table)
         docs = df.to_dicts()
+
+        # Agrega client_id y period a cada documento si están presentes
+        for doc in docs:
+            if client_id is not None:
+                doc["cxj"] = client_id
+            if period is not None:
+                doc["cxi"] = period
+
         buffer_docs.extend(docs)
 
         if len(buffer_docs) >= batch_size:

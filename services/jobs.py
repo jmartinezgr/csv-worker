@@ -99,6 +99,8 @@ def process_job(
             job.collection_name,
             batch_size=settings.batch_size,
             block_size_bytes=settings.block_size_bytes,
+            client_id=job.client_id,
+            period=job.period,
             log=log,
         )
 
