@@ -19,9 +19,6 @@ class Settings(BaseSettings):
     # Worker identification
     worker_id: str = Field(..., description="Unique worker identifier")
 
-    # Job configuration
-    job_id: str = Field(..., description="Current job ID to process")
-
     # MongoDB configuration (unified)
     mongo_uri: str = Field(
         ..., description="Complete MongoDB connection URI including database"
