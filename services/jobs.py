@@ -7,7 +7,7 @@ from typing import Callable
 from config.settings import Settings
 from models.jobs import JobResponse
 from services.api import ApiClient
-from services.db import process_csv_stream_to_mongo
+from services.db import process_csv_stream_to_mongo, ProcessingState
 from services.storage import stream_blob
 
 Logger = Callable[[str], None]
@@ -18,11 +18,12 @@ def start_heartbeat(
     job_id: str,
     interval: int,
     log: Logger,
+    processing_state: ProcessingState | None = None,
 ) -> tuple[threading.Thread, threading.Event]:
     stop_event = threading.Event()
     thread = threading.Thread(
         target=_heartbeat_loop,
-        args=(client, job_id, stop_event, interval, log),
+        args=(client, job_id, stop_event, interval, log, processing_state),
         daemon=True,
     )
     thread.start()
@@ -35,11 +36,19 @@ def _heartbeat_loop(
     stop_event: threading.Event,
     interval: int,
     log: Logger,
+    processing_state: ProcessingState | None = None,
 ):
-    """Periodically ping the API to update heartbeat."""
+    """Periodically ping the API to update heartbeat with rows processed delta."""
     while not stop_event.is_set():
         try:
-            resp = client.put(f"/jobs/{job_id}/heartbeat")
+            # Get delta of rows processed since last heartbeat
+            rows_delta = 0
+            if processing_state:
+                rows_delta = processing_state.get_and_reset()
+
+            # Send heartbeat as POST with rows_delta in body
+            data = {"rows_delta": rows_delta}
+            resp = client.post(f"/jobs/{job_id}/heartbeat", data=data)
             if resp.status_code != 200:
                 log(f"Heartbeat failed: {resp.status_code} {resp.text}")
         except Exception as e:
@@ -84,6 +93,7 @@ def process_job(
     settings: Settings,
     client: ApiClient,
     log: Logger,
+    processing_state: ProcessingState | None = None,
 ):
     try:
         stream_obj = stream_blob(
@@ -102,6 +112,8 @@ def process_job(
             client_id=job.client_id,
             period=job.period,
             log=log,
+            config=job.config,
+            processing_state=processing_state,
         )
 
         mark_complete(client, job.id, log)

@@ -3,6 +3,7 @@ import traceback
 
 from config.settings import get_settings
 from services.api import make_api_client
+from services.db import ProcessingState
 from services.jobs import get_next_job, process_job, start_heartbeat
 
 
@@ -29,16 +30,20 @@ def main():
             if next_job:
                 empty_retries = 0
 
+                # Create processing state for this job
+                processing_state = ProcessingState()
+
                 # Inicia heartbeat para este job específico
                 hb_thread, stop_event = start_heartbeat(
                     client,
                     next_job.id,
                     settings.heartbeat_interval,
                     log,
+                    processing_state,
                 )
 
                 # Procesa el job
-                process_job(next_job, settings, client, log)
+                process_job(next_job, settings, client, log, processing_state)
 
                 # ✅ DETIENE el heartbeat después de terminar
                 stop_event.set()
