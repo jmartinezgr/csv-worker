@@ -41,7 +41,6 @@ class ApiClient:
             "X-Worker-Id": worker_id,
             "X-Client-Signature": f"csv-worker/{worker_id}",
             "Accept": "application/json",
-            "User-Agent": f"csv-worker{worker_id}",
         }
 
     def _full_url(self, path: str) -> str:
